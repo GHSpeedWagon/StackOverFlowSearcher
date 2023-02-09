@@ -15,7 +15,7 @@ import java.io.IOException;
 public class HttpClient {
     private final CloseableHttpClient httpClient = HttpClients.createDefault();
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
