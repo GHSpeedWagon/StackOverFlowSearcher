@@ -14,25 +14,38 @@ import java.util.Optional;
 @Service
 public class StackOverFlowSearcherService {
     private static final String GENERAL_URL = "https://api.stackexchange.com/2.3/users";
+    private static final String FILTER = "?order=desc&sort=reputation&site=stackoverflow&filter=!0Z-LvgkSiw7F*kKokgwZ_hl9g";
+    private static final String FILTER_FOR_TAGS = "?&order=desc&sort=popular&site=stackoverflow&filter=!9ewGKXLQS";
+    private static final String FIRST_PAGE = "&page=1";
+    private static final String PAGE_WITHOUT_NUMBER = "&page=";
+    private static final String TAGS_ENDPOINT = "/tags";
+    private static final String MOLDOVA_COUNTRY = "Moldova";
+    private static final String ROMANIA_COUNTRY = "Romania";
+    private static final String JAVA = "java";
+    private static final String C_SHARP = "C#";
+    private static final String DOT_NET = ".net";
+    private static final String DOCKER = "docker";
+    private static final String REVERSE_SLASH = "/";
     private static final HttpClient httpClient = new HttpClient();
-    private static List<String> urlComponents = new ArrayList<>();
-    private List<ApiUserDto> allUsers = new ArrayList<>();
-    private List<ApiUserDto> filteredUsers = new ArrayList<>();
+    private final List<String> urlComponents = new ArrayList<>();
+    private final List<ApiUserDto> allUsers = new ArrayList<>();
+    private final List<ApiUserDto> filteredUsers = new ArrayList<>();
+
     public List<ApiUserDto> parseUsers() {
         urlComponents.add(GENERAL_URL);
-        urlComponents.add("?order=desc&sort=reputation&site=stackoverflow&filter=!0Z-LvgkSiw7F*kKokgwZ_hl9g");
-        urlComponents.add("&page=1");
+        urlComponents.add(FILTER);
+        urlComponents.add(FIRST_PAGE);
         String finalUrl = String.join("", urlComponents);
         ApiUsersResponseDto apiResponseDto = httpClient.get(finalUrl, ApiUsersResponseDto.class);
-        filterByRepLocAns(apiResponseDto);
+        filterByReputationLocationAnswerCount(apiResponseDto);
         int i = 2;
-        while (apiResponseDto.isHas_more()) {
-            String pageNumber = "&page=" + i;
+        while (apiResponseDto.isHasMore()) {
+            String pageNumber = PAGE_WITHOUT_NUMBER + i;
             urlComponents.set(2, pageNumber);
             finalUrl = String.join("", urlComponents);
             apiResponseDto = httpClient.get(finalUrl, ApiUsersResponseDto.class);
             if (apiResponseDto.getItems() != null) {
-                filterByRepLocAns(apiResponseDto);
+                filterByReputationLocationAnswerCount(apiResponseDto);
             } else {
                 break;
             }
@@ -47,46 +60,54 @@ public class StackOverFlowSearcherService {
         return filteredUsers;
     }
 
-    private void filterByRepLocAns(ApiUsersResponseDto apiResponseDto) {
+    private void filterByReputationLocationAnswerCount(ApiUsersResponseDto apiResponseDto) {
         apiResponseDto.getItems().stream()
-                .filter(f -> f.getLocation() != null)
-                .filter(f -> f.getLocation().contains("Moldova") || f.getLocation().contains("Romania"))
-                .filter(u -> u.getReputation() != null)
-                .filter(u -> u.getReputation() >= 223)
-                .filter(u -> u.getAnswer_count() >= 1)
-                .forEach(allUsers::add);
+            .filter(f -> f.getLocation() != null)
+            .filter(f -> f.getLocation().contains(MOLDOVA_COUNTRY)
+                    || f.getLocation().contains(ROMANIA_COUNTRY))
+            .filter(u -> u.getReputation() != null)
+            .filter(u -> u.getReputation() >= 223)
+            .filter(u -> u.getAnswerCount() >= 1)
+            .forEach(allUsers::add);
     }
 
     private Boolean parseAndFilterByTags(ApiUserDto user) {
         urlComponents.clear();
-        urlComponents.add(GENERAL_URL + "/");
+        urlComponents.add(GENERAL_URL + REVERSE_SLASH);
         urlComponents.add(user.getUser_id().toString());
-        urlComponents.add("/tags?&order=desc&sort=popular&site=stackoverflow&filter=!9ewGKXLQS&");
-        urlComponents.add("page=1");
+        urlComponents.add(TAGS_ENDPOINT);
+        urlComponents.add(FILTER_FOR_TAGS);
+        urlComponents.add(FIRST_PAGE);
         String finalUrl = String.join("", urlComponents);
         ApiTagsResponseDto apiTagsResponseDto = httpClient.get(finalUrl, ApiTagsResponseDto.class);
         return filterByTags(apiTagsResponseDto);
     }
 
     private boolean filterByTags(ApiTagsResponseDto apiTagsResponseDto) {
-        Optional<String> first = apiTagsResponseDto.getItems()
+        Optional<String> current = apiTagsResponseDto.getItems()
                 .stream().map(ApiTagDto::getName)
-                .filter(t -> t.contains("java") || t.contains(".net") || t.contains("docker") || t.contains("C#"))
+                .filter(t -> t.contains(JAVA)
+                        || t.contains(DOT_NET)
+                        || t.contains(DOCKER)
+                        || t.contains(C_SHARP))
                 .findFirst();
         int i = 2;
-        while (apiTagsResponseDto.isHas_more()) {
-            if (first.isPresent()) {
+        while (apiTagsResponseDto.isHasMore()) {
+            if (current.isPresent()) {
                 break;
             }
-            String pageNumber = "page=" + i;
+            String pageNumber = PAGE_WITHOUT_NUMBER.substring(1) + i;
             urlComponents.set(3, pageNumber);
             String subUrlNext = String.join("", urlComponents);
             apiTagsResponseDto = httpClient.get(subUrlNext, ApiTagsResponseDto.class);
-            first = apiTagsResponseDto.getItems()
+            current = apiTagsResponseDto.getItems()
                     .stream().map(ApiTagDto::getName)
-                    .filter(t -> t.contains("java") || t.contains(".net") || t.contains("docker") || t.contains("C#"))
+                    .filter(t -> t.contains(JAVA)
+                            || t.contains(DOT_NET)
+                            || t.contains(DOCKER)
+                            || t.contains(C_SHARP))
                     .findFirst();
         }
-        return first.isPresent();
+        return current.isPresent();
     }
 }
